@@ -1,761 +1,347 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fractal Space Camera Navigation</title>
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      width: 100%;
-      height: 100%;
-      font-family: Arial, sans-serif;
-      background-color: black;
-      touch-action: none; /* Prevent browser handling of touch gestures */
-    }
-    canvas {
-      display: block;
-      position: absolute;
-      top: 0;
-      left: 0;
-      touch-action: none;
-    }
-    .attribution {
-      position: absolute;
-      bottom: 16px;
-      right: 16px;
-      background-color: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 8px;
-      border-radius: 4px;
-      font-size: 14px;
-      z-index: 10;
-    }
-    .attribution a {
-      color: #ffccee;
-      text-decoration: none;
-    }
-    .attribution a:hover {
-      text-decoration: underline;
-    }
-    .controls {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      background-color: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 10px;
-      border-radius: 4px;
-      font-size: 14px;
-      z-index: 10;
-      line-height: 1.5;
-      max-width: 280px;
-    }
-    .controls-table {
-      border-collapse: collapse;
-      margin-top: 8px;
-    }
-    .controls-table td {
-      padding: 4px 10px 4px 0;
-    }
-    .controls-table .key {
-      font-family: monospace;
-      background-color: rgba(255, 255, 255, 0.2);
-      padding: 2px 6px;
-      border-radius: 3px;
-    }
-    /* Mobile controls */
-    .mobile-controls {
-      position: absolute;
-      bottom: 16px;
-      left: 0;
-      right: 0;
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      z-index: 10;
-    }
-    .mobile-btn {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background-color: rgba(0, 0, 0, 0.5);
-      color: white;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      touch-action: none;
-      user-select: none;
-    }
-    .mobile-btn:active {
-      background-color: rgba(255, 100, 200, 0.5);
-    }
-    .mobile-instructions {
-      display: none;
-    }
-
-    /* Only show mobile or desktop controls based on device */
-    @media (max-width: 768px) {
-      .controls {
-        display: none;
-      }
-      .mobile-instructions {
-        display: block;
-        position: absolute;
-        top: 16px;
-        left: 16px;
-        right: 16px;
-        background-color: rgba(0, 0, 0, 0.7);
-        color: white;
-        padding: 10px;
-        border-radius: 4px;
-        font-size: 14px;
-        z-index: 10;
-        text-align: center;
-      }
-    }
-    @media (min-width: 769px) {
-      .mobile-controls {
-        display: none;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mobile Orientation Shader (HTTPS)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #permissionButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 25px;
+            font-size: 18px;
+            background-color: #444;
+            border: 1px solid #888;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 10;
+        }
+         #info {
+             position: absolute;
+             top: 10px;
+             left: 10px;
+             font-size: 12px;
+             color: rgba(255, 255, 255, 0.7);
+             text-shadow: 0 0 2px black;
+             z-index: 5;
+             pointer-events: none; /* Allow clicks through */
+         }
+    </style>
 </head>
 <body>
-  <!-- Attribution -->
-  <div class="attribution">
-    <a href="https://x.com/YoheiNishitsuji/status/1898392319386366065" target="_blank" rel="noopener noreferrer">
-      Inspired by @YoheiNishitsuji
-    </a>
-  </div>
-  
-  <!-- Controls info -->
-  <div class="controls">
-    Fractal Space Navigation
-    <table class="controls-table">
-      <tr>
-        <td><span class="key">W</span> <span class="key">A</span> <span class="key">S</span> <span class="key">D</span></td>
-        <td>Movement</td>
-      </tr>
-      <tr>
-        <td><span class="key">Q</span> <span class="key">E</span></td>
-        <td>Rotate</td>
-      </tr>
-      <tr>
-        <td><span class="key">Z</span> <span class="key">X</span></td>
-        <td>Zoom in/out</td>
-      </tr>
-      <tr>
-        <td><span class="key">Space</span></td>
-        <td>Toggle auto-flow</td>
-      </tr>
-      <tr>
-        <td><span class="key">R</span></td>
-        <td>Reset view</td>
-      </tr>
-    </table>
-  </div>
-  <!-- Mobile instructions -->
-  <div class="mobile-instructions">
-    • Drag: Move camera
-    • Pinch: Zoom in/out
-    • Rotate: Two fingers
-    • Double-tap: Toggle auto-flow
-  </div>
-  
-  <!-- Mobile controls -->
-  <div class="mobile-controls">
-    <div class="mobile-btn" id="btn-reset">Reset</div>
-    <div class="mobile-btn" id="btn-flow">Auto<br>Flow</div>
-  </div>
-  
-  <!-- Fractal canvas -->
-  <canvas id="fractal-canvas"></canvas>
+    <canvas id="glCanvas"></canvas>
+    <div id="info">Initializing... Needs HTTPS & Permissions.</div>
+    <button id="permissionButton" style="display: none;">Enable Orientation Control</button>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const canvas = document.getElementById('fractal-canvas');
-      
-      // Get WebGL context
-      const gl = canvas.getContext("webgl2");
-      if (!gl) {
-        console.error("WebGL2 not supported");
-        return;
-      }
-
-      // Resize canvas to full screen
-      const resizeCanvas = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-      };
-
-      resizeCanvas();
-      window.addEventListener("resize", resizeCanvas);
-
-      // Vertex shader - simple pass-through
-      const vertexShaderSource = `#version 300 es
-        in vec4 a_position;
+    <script id="vertexShader" type="x-shader/x-vertex">
+        attribute vec2 a_position;
         void main() {
-          gl_Position = a_position;
+            gl_Position = vec4(a_position, 0.0, 1.0);
         }
-      `;
+    </script>
 
-      // Fragment shader with camera navigation
-      const fragmentShaderSource = `#version 300 es
-        precision highp float;
-        out vec4 outColor;
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        precision mediump float; // Important for mobile
+
         uniform vec2 u_resolution;
         uniform float u_time;
-        
-        // Camera uniforms
-        uniform vec2 u_cameraPos;
-        uniform float u_cameraZoom;
-        uniform float u_cameraRotation;
-        
-        // HSV to RGB conversion function
+        uniform float u_beta;  // Tilt front/back (pitch) degrees
+        uniform float u_gamma; // Tilt left/right (roll) degrees
+
+        // Simple HSV to RGB conversion function
         vec3 hsv(float h, float s, float v) {
-          vec4 t = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-          vec3 p = abs(fract(vec3(h) + t.xyz) * 6.0 - vec3(t.w));
-          return v * mix(vec3(t.x), clamp(p - vec3(t.x), 0.0, 1.0), s);
+            vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+            vec3 p = abs(fract(vec3(h) + K.xyz) * 6.0 - K.www);
+            return v * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), s);
         }
-        
-        // Function to compute the gradient force at a position
-        float computeGradientForce(vec2 pos, float time) {
-          vec3 p = vec3(
-            log2(length(vec3(pos, 0.5))) - time * 0.8,
-            exp(1.0 - 0.5 / max(0.001, length(vec3(pos, 0.5)))),
-            atan(pos.y, pos.x) + cos(time * 0.3) * 0.2
-          );
-          
-          float e = --p.y;
-          float gradS = 1.0;
-          for(int i = 0; i < 5; i++) {
-            e += sin(dot(sin(p.zxy*gradS) - 0.5, 1.0 - cos(p.yxz*gradS))) / gradS;
-            gradS += gradS;
-          }
-          
-          return e;
-        }
-        
+
+        // Main shader logic adapted from user code
         void main() {
-          // Apply camera transformations
-          vec2 r = u_resolution;
-          vec2 uv = gl_FragCoord.xy / r;
-          
-          // Center coordinates
-          vec2 coord = uv * 2.0 - 1.0;
-          coord.x *= r.x / r.y; // Aspect ratio correction
-          
-          // Apply zoom
-          coord /= u_cameraZoom;
-          
-          // Apply rotation
-          float sinRot = sin(u_cameraRotation);
-          float cosRot = cos(u_cameraRotation);
-          vec2 rotated = vec2(
-            coord.x * cosRot - coord.y * sinRot,
-            coord.x * sinRot + coord.y * cosRot
-          );
-          
-          // Apply camera position
-          rotated += u_cameraPos;
-          
-          // Initial values for ray marching
-          float t = u_time;
-          vec4 o = vec4(0.0, 0.0, 0.0, 1.0);
-          
-          float i = 0.0, e = 0.0, R = 0.0, stepSize = 0.0;
-          vec3 q, p, d = vec3(rotated, 0.7);
-          
-          // Primary ray marching loop
-          for(q.zx = vec2(-1.0, -1.0); i < 99.0; i++) {
-            // Accumulate color - shifted to dark pink spectrum
-            o.rgb += hsv(0.9, 0.3, min(e*stepSize, 0.7-e)/35.0);
-            
-            // Reset step size
-            stepSize = 1.0;
-            
-            // Update position along the ray
-            p = q += d * e * R * 0.1;
-            
-            // Domain transformation
-            p = vec3(
-              log2(R = length(p)) - t * 0.8,
-              exp(1.0 - p.z/max(0.001, R)),
-              atan(p.y, p.x) + cos(t * 0.3) * 0.2
-            );
-            
-            // Distance estimation through domain-warped noise
-            for(e = --p.y; stepSize < 300.0; stepSize += stepSize) {
-              e += sin(dot(sin(p.zxy*stepSize) - 0.5, 1.0 - cos(p.yxz*stepSize))) / stepSize;
+            vec2 FC = gl_FragCoord.xy; // Fragment Coordinates
+            float r = u_resolution.y;  // Use height for consistent scaling factor
+            float t = u_time * 0.15;   // Use time uniform, maybe scaled
+            vec4 o = vec4(0.0);      // Output color, initialized to black
+
+            // --- Original shader variables ---
+            float e=0.0, g=0.0, R=0.0, s=0.0;
+            int i; // Declare i as INT for loop compatibility
+            vec3 q, p;
+
+            // Initial ray direction based on fragment coordinates, adjusted for aspect ratio
+            vec3 d = vec3((FC.xy / u_resolution.xy - 0.5) * vec2(u_resolution.x/u_resolution.y, 1.0) , 1.0);
+
+            // --- Apply Orientation ---
+            float beta_rad = radians(u_beta);
+            float gamma_rad = radians(u_gamma);
+            mat3 rotY = mat3(cos(gamma_rad), 0, sin(gamma_rad), 0, 1, 0, -sin(gamma_rad), 0, cos(gamma_rad));
+            mat3 rotX = mat3(1, 0, 0, 0, cos(beta_rad), -sin(beta_rad), 0, sin(beta_rad), cos(beta_rad));
+            d = rotX * rotY * d;
+            d = normalize(d);
+
+            // Ray origin (camera position)
+            q = vec3(0.0, 0.0, -2.0); // Start slightly back
+
+            // --- The main loop ---
+            for(i=0; i < 129; i++){ // Use integer loop
+
+                e += float(i) / 80000.0; // Cast i to float
+
+                R = length(q);
+                o.rgb += hsv(0.58, R + g * 0.3, e * float(i) / 40.0); // Cast i to float
+
+                q += d * e * R * 0.3 + 2e-5;
+                p = q;
+
+                g += p.y / 4.0;
+
+                // Inner loop section simulation
+                vec3 p_inner = p;
+                float R_inner = length(p_inner);
+                if (R_inner < 1e-5) R_inner = 1e-5;
+
+                vec3 mapped_p = vec3(log2(R_inner) - t * 0.2, exp2(mod(-p_inner.z, 4.0) / R_inner) - 0.15, p_inner.x);
+
+                float inner_calc_e = mapped_p.y - 1.0;
+                s = 4.0;
+
+                int j; // Declare j outside loop
+                for(j=0; j<10; j++) {
+                    if (s >= 1000.0) break;
+                    inner_calc_e += -abs(dot(sin(mapped_p.yzx * s), cos(mapped_p.xzy * s)) / s * 0.5);
+                    s *= 2.0;
+                }
+
+                e += inner_calc_e * 0.001;
+
+            } // End of main loop (i)
+
+            gl_FragColor = vec4(clamp(o.rgb, 0.0, 1.0), 1.0);
+        }
+    </script>
+
+    <script>
+        const canvas = document.getElementById('glCanvas');
+        // Force specific context type for clarity
+        const gl = canvas.getContext('webgl');
+        const infoDiv = document.getElementById('info');
+        const permissionButton = document.getElementById('permissionButton');
+
+        let shaderProgram;
+        let positionBuffer;
+        let positionAttributeLocation;
+        let resolutionUniformLocation;
+        let timeUniformLocation;
+        let betaUniformLocation;
+        let gammaUniformLocation;
+
+        // --- Device Orientation State ---
+        let currentBeta = 0;
+        let currentGamma = 0;
+        let orientationPermissionGranted = false;
+        // Check if the permission API exists *and* if we are in a secure context
+        let needsPermission = typeof DeviceOrientationEvent !== 'undefined' &&
+                              typeof DeviceOrientationEvent.requestPermission === 'function';
+        let isSecureContext = window.isSecureContext; // Check if context is secure (HTTPS or localhost)
+
+        // --- WebGL Initialization ---
+        function initWebGL() {
+            if (!gl) {
+                infoDiv.textContent = 'WebGL is not supported by your browser/device.';
+                alert('WebGL is not supported by your browser/device.');
+                return false;
             }
-          }
-          
-          // Output final color
-          outColor = o;
-        }
-      `;
+             // Check secure context early
+             if (!isSecureContext) {
+                 infoDiv.innerHTML = 'ERROR: Page must be served over HTTPS for device orientation.';
+                 console.warn('Page is not in a secure context (HTTPS). Device orientation may fail.');
+                 // We can still *try* to set up WebGL, but orientation likely won't work.
+             }
 
-      // Create and compile shaders
-      const createShader = (gl, type, source) => {
-        const shader = gl.createShader(type);
-        if (!shader) {
-          console.error("Failed to create shader");
-          return null;
-        }
+            const vsSource = document.getElementById('vertexShader').text;
+            const fsSource = document.getElementById('fragmentShader').text;
+            shaderProgram = createShaderProgram(gl, vsSource, fsSource);
 
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-          console.error("Shader compilation error:", gl.getShaderInfoLog(shader));
-          gl.deleteShader(shader);
-          return null;
-        }
-
-        return shader;
-      };
-
-      // Create vertex and fragment shaders
-      const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-      const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-
-      if (!vertexShader || !fragmentShader) return;
-
-      // Create and link program
-      const program = gl.createProgram();
-      if (!program) {
-        console.error("Failed to create program");
-        return;
-      }
-
-      gl.attachShader(program, vertexShader);
-      gl.attachShader(program, fragmentShader);
-      gl.linkProgram(program);
-
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        console.error("Program linking error:", gl.getProgramInfoLog(program));
-        return;
-      }
-
-      // Use the program
-      gl.useProgram(program);
-
-      // Set up position buffer (full screen quad)
-      const positionBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-      gl.bufferData(
-        gl.ARRAY_BUFFER,
-        new Float32Array([-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0]),
-        gl.STATIC_DRAW,
-      );
-
-      // Set up attributes
-      const positionAttributeLocation = gl.getAttribLocation(program, "a_position");
-      gl.enableVertexAttribArray(positionAttributeLocation);
-      gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
-
-      // Set up uniforms
-      const resolutionUniformLocation = gl.getUniformLocation(program, "u_resolution");
-      const timeUniformLocation = gl.getUniformLocation(program, "u_time");
-      const cameraPosUniformLocation = gl.getUniformLocation(program, "u_cameraPos");
-      const cameraZoomUniformLocation = gl.getUniformLocation(program, "u_cameraZoom");
-      const cameraRotationUniformLocation = gl.getUniformLocation(program, "u_cameraRotation");
-
-      // Start time for animation
-      const startTime = performance.now();
-
-      // Camera state
-      const camera = {
-        x: 0.0,
-        y: 0.0,
-        zoom: 1.0,
-        rotation: 0.0,
-        velX: 0.0,
-        velY: 0.0,
-        velZoom: 0.0,
-        velRotation: 0.0,
-        autoFlow: true
-      };
-
-      // Movement constants
-      const moveSpeed = 0.005;
-      const zoomSpeed = 0.01;
-      const rotateSpeed = 0.01;
-      const gradientInfluence = 0.0015;
-      const damping = 0.95;
-      
-      // Mobile touch state
-      const touch = {
-        active: false,
-        lastX: 0,
-        lastY: 0,
-        startX: 0,
-        startY: 0,
-        startDistance: 0,
-        startAngle: 0,
-        lastTapTime: 0,
-        touchPoints: []
-      };
-
-      // Controls state
-      const keys = {
-        w: false,
-        a: false,
-        s: false,
-        d: false,
-        q: false,
-        e: false,
-        z: false,
-        x: false,
-        r: false,
-        " ": false // Space
-      };
-      
-      // Touch utility functions
-      const getDistance = (p1, p2) => {
-        return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
-      };
-      
-      const getAngle = (p1, p2) => {
-        return Math.atan2(p2.y - p1.y, p2.x - p1.x);
-      };
-      
-      // Touch event handlers
-      const handleTouchStart = (e) => {
-        e.preventDefault();
-        touch.active = true;
-        
-        // Store touch points
-        touch.touchPoints = [];
-        for (let i = 0; i < e.touches.length; i++) {
-          touch.touchPoints.push({
-            id: e.touches[i].identifier,
-            x: e.touches[i].clientX,
-            y: e.touches[i].clientY
-          });
-        }
-        
-        if (e.touches.length === 1) {
-          const currentTime = Date.now();
-          if (currentTime - touch.lastTapTime < 300) {
-            // Double tap detected - toggle auto-flow
-            camera.autoFlow = !camera.autoFlow;
-            const flowBtn = document.getElementById('btn-flow');
-            if (flowBtn) {
-              flowBtn.style.backgroundColor = camera.autoFlow ? 
-                'rgba(255, 100, 200, 0.5)' : 'rgba(0, 0, 0, 0.5)';
+            if (!shaderProgram) {
+                infoDiv.textContent = 'Failed to create shader program. Check console.';
+                return false;
             }
-          }
-          touch.lastTapTime = currentTime;
-          
-          // Single touch - track for movement
-          touch.lastX = e.touches[0].clientX;
-          touch.lastY = e.touches[0].clientY;
-          touch.startX = e.touches[0].clientX;
-          touch.startY = e.touches[0].clientY;
-        } else if (e.touches.length === 2) {
-          // Two finger touch - track for pinch/zoom and rotation
-          touch.startDistance = getDistance(
-            { x: e.touches[0].clientX, y: e.touches[0].clientY },
-            { x: e.touches[1].clientX, y: e.touches[1].clientY }
-          );
-          touch.startAngle = getAngle(
-            { x: e.touches[0].clientX, y: e.touches[0].clientY },
-            { x: e.touches[1].clientX, y: e.touches[1].clientY }
-          );
-        }
-      };
-      
-      const handleTouchMove = (e) => {
-        e.preventDefault();
-        if (!touch.active) return;
-        
-        // Update touch points
-        touch.touchPoints = [];
-        for (let i = 0; i < e.touches.length; i++) {
-          touch.touchPoints.push({
-            id: e.touches[i].identifier,
-            x: e.touches[i].clientX,
-            y: e.touches[i].clientY
-          });
-        }
-        
-        if (e.touches.length === 1) {
-          // Single touch - handle camera movement
-          const currentX = e.touches[0].clientX;
-          const currentY = e.touches[0].clientY;
-          
-          const deltaX = currentX - touch.lastX;
-          const deltaY = currentY - touch.lastY;
-          
-          // Apply movement based on screen size
-          const screenFactor = Math.min(window.innerWidth, window.innerHeight) / 500;
-          camera.velX -= (deltaX / window.innerWidth) * moveSpeed * 10 * screenFactor;
-          camera.velY -= (deltaY / window.innerHeight) * moveSpeed * 10 * screenFactor;
-          
-          touch.lastX = currentX;
-          touch.lastY = currentY;
-        } else if (e.touches.length === 2) {
-          // Two finger touch - handle pinch/zoom and rotation
-          const p1 = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-          const p2 = { x: e.touches[1].clientX, y: e.touches[1].clientY };
-          
-          // Calculate current distance and angle
-          const currentDistance = getDistance(p1, p2);
-          const currentAngle = getAngle(p1, p2);
-          
-          // Apply zoom based on pinch gesture
-          const zoomDelta = (currentDistance - touch.startDistance) / 200;
-          camera.velZoom += zoomDelta * zoomSpeed * 2;
-          touch.startDistance = currentDistance;
-          
-          // Apply rotation based on two-finger rotation
-          let angleDelta = currentAngle - touch.startAngle;
-          // Normalize angle delta to be between -PI and PI
-          if (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
-          if (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
-          
-          camera.velRotation += angleDelta * rotateSpeed * 2;
-          touch.startAngle = currentAngle;
-        }
-      };
-      
-      const handleTouchEnd = (e) => {
-        e.preventDefault();
-        
-        // Update touch points
-        touch.touchPoints = [];
-        for (let i = 0; i < e.touches.length; i++) {
-          touch.touchPoints.push({
-            id: e.touches[i].identifier,
-            x: e.touches[i].clientX,
-            y: e.touches[i].clientY
-          });
-        }
-        
-        if (e.touches.length === 0) {
-          touch.active = false;
-        }
-      };
-      
-      // Setup mobile button handlers
-      const setupMobileButtons = () => {
-        const resetBtn = document.getElementById('btn-reset');
-        const flowBtn = document.getElementById('btn-flow');
-        
-        if (resetBtn) {
-          resetBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            // Reset camera
-            camera.x = 0.0;
-            camera.y = 0.0;
-            camera.zoom = 1.0;
-            camera.rotation = 0.0;
-            camera.velX = 0.0;
-            camera.velY = 0.0;
-            camera.velZoom = 0.0;
-            camera.velRotation = 0.0;
-          });
-        }
-        
-        if (flowBtn) {
-          // Initial state
-          flowBtn.style.backgroundColor = camera.autoFlow ? 
-            'rgba(255, 100, 200, 0.5)' : 'rgba(0, 0, 0, 0.5)';
-            
-          flowBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            camera.autoFlow = !camera.autoFlow;
-            flowBtn.style.backgroundColor = camera.autoFlow ? 
-              'rgba(255, 100, 200, 0.5)' : 'rgba(0, 0, 0, 0.5)';
-          });
-        }
-      };
-      
-      // Add mobile touch event listeners
-      canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-      canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-      canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
-      canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
-      
-      // Setup mobile UI
-      setupMobileButtons();
 
-      // Handle keyboard input
-      const handleKeyDown = (e) => {
-        if (keys.hasOwnProperty(e.key.toLowerCase())) {
-          keys[e.key.toLowerCase()] = true;
-          
-          // Toggle auto-flow on space
-          if (e.key === " " && !e.repeat) {
-            camera.autoFlow = !camera.autoFlow;
-          }
-          
-          // Reset view
-          if (e.key.toLowerCase() === "r" && !e.repeat) {
-            camera.x = 0.0;
-            camera.y = 0.0;
-            camera.zoom = 1.0;
-            camera.rotation = 0.0;
-            camera.velX = 0.0;
-            camera.velY = 0.0;
-            camera.velZoom = 0.0;
-            camera.velRotation = 0.0;
-          }
-          
-          e.preventDefault();
+            positionAttributeLocation = gl.getAttribLocation(shaderProgram, "a_position");
+            resolutionUniformLocation = gl.getUniformLocation(shaderProgram, "u_resolution");
+            timeUniformLocation = gl.getUniformLocation(shaderProgram, "u_time");
+            betaUniformLocation = gl.getUniformLocation(shaderProgram, "u_beta");
+            gammaUniformLocation = gl.getUniformLocation(shaderProgram, "u_gamma");
+
+            positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            const positions = [-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0];
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+            // Don't use program here, do it in render loop for safety
+            // gl.useProgram(shaderProgram);
+
+            return true;
         }
-      };
 
-      const handleKeyUp = (e) => {
-        if (keys.hasOwnProperty(e.key.toLowerCase())) {
-          keys[e.key.toLowerCase()] = false;
-          e.preventDefault();
+        // --- Shader Compilation Helper ---
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                return shader;
+            } else {
+                const errorLog = gl.getShaderInfoLog(shader);
+                console.error(`Shader compilation error (${type === gl.VERTEX_SHADER ? 'Vertex' : 'Fragment'}):`, errorLog);
+                const errorLines = errorLog.split('\n').filter(line => line.trim().startsWith('ERROR:'));
+                alert(`Shader compilation error:\n${errorLines.join('\n') || errorLog}`);
+                gl.deleteShader(shader);
+                return null;
+            }
         }
-      };
 
-      window.addEventListener("keydown", handleKeyDown);
-      window.addEventListener("keyup", handleKeyUp);
+        function createShaderProgram(gl, vsSource, fsSource) {
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+            if (!vertexShader || !fragmentShader) return null;
 
-      // Calculate gradient at a position
-      const calculateGradient = (x, y, time) => {
-        const dist = Math.sqrt(x*x + y*y + 0.25);
-        
-        const p = {
-          x: Math.log2(dist) - time * 0.8,
-          y: Math.exp(1.0 - 0.5 / Math.max(0.001, dist)) - 1.0,
-          z: Math.atan2(y, x) + Math.cos(time * 0.3) * 0.2
-        };
-        
-        let e = p.y;
-        let s = 1.0;
-        
-        // Simplified noise calculation
-        for(let i = 0; i < 5; i++) {
-          const sx = Math.sin(p.z * s);
-          const sy = Math.sin(p.x * s);
-          const sz = Math.sin(p.y * s);
-          
-          const cx = Math.cos(p.y * s);
-          const cy = Math.cos(p.z * s);
-          const cz = Math.cos(p.x * s);
-          
-          const dot = (sx - 0.5) * (1.0 - cx) + 
-                        (sy - 0.5) * (1.0 - cy) + 
-                        (sz - 0.5) * (1.0 - cz);
-                       
-          e += Math.sin(dot) / s;
-          s *= 2.0;
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+
+            if (gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                gl.detachShader(program, vertexShader);
+                gl.detachShader(program, fragmentShader);
+                gl.deleteShader(vertexShader);
+                gl.deleteShader(fragmentShader);
+                return program;
+            } else {
+                console.error('Shader program linking error:', gl.getProgramInfoLog(program));
+                alert('Shader program linking error: ' + gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                gl.deleteShader(vertexShader);
+                gl.deleteShader(fragmentShader);
+                return null;
+            }
         }
-        
-        return e;
-      };
 
-      // Main loop
-      const render = (currentTime) => {
-        // Calculate time
-        const elapsedTime = (currentTime - startTime) / 1000; // Convert to seconds
-        
-        // Sample gradient if auto-flow is enabled
-        if (camera.autoFlow) {
-          const sampleDist = 0.03;
-          const time = elapsedTime;
-          
-          const leftVal = calculateGradient(camera.x - sampleDist, camera.y, time);
-          const rightVal = calculateGradient(camera.x + sampleDist, camera.y, time);
-          const upVal = calculateGradient(camera.x, camera.y - sampleDist, time);
-          const downVal = calculateGradient(camera.x, camera.y + sampleDist, time);
-          
-          // Calculate gradient force
-          const forceX = (rightVal - leftVal) * gradientInfluence;
-          const forceY = (downVal - upVal) * gradientInfluence;
-          
-          // Apply gradient force
-          camera.velX += forceX;
-          camera.velY += forceY;
+        // --- Device Orientation Handling ---
+        function handleOrientation(event) {
+            currentBeta = event.beta || 0;
+            currentGamma = event.gamma || 0;
+            if (!infoDiv.textContent.startsWith('Beta:')) { // Update info only once permission granted
+                 infoDiv.textContent = `Beta: ${currentBeta.toFixed(1)}°, Gamma: ${currentGamma.toFixed(1)}°`;
+            }
         }
-        
-        // Apply direct control for movement
-        if (keys.a) camera.velX -= moveSpeed;
-        if (keys.d) camera.velX += moveSpeed;
-        if (keys.w) camera.velY -= moveSpeed;
-        if (keys.s) camera.velY += moveSpeed;
-        
-        // Apply rotation controls
-        if (keys.q) camera.velRotation -= rotateSpeed;
-        if (keys.e) camera.velRotation += rotateSpeed;
-        
-        // Apply zoom controls
-        if (keys.z) camera.velZoom += zoomSpeed;
-        if (keys.x) camera.velZoom -= zoomSpeed;
-        
-        // Apply damping to create smooth movement
-        camera.velX *= damping;
-        camera.velY *= damping;
-        camera.velRotation *= damping;
-        camera.velZoom *= damping;
-        
-        // Update camera position
-        camera.x += camera.velX;
-        camera.y += camera.velY;
-        camera.rotation += camera.velRotation;
-        
-        // Update zoom with limits
-        camera.zoom = Math.max(0.1, Math.min(5.0, camera.zoom + camera.velZoom));
-        
-        // Update WebGL uniforms
-        gl.uniform1f(timeUniformLocation, elapsedTime);
-        gl.uniform2f(resolutionUniformLocation, canvas.width, canvas.height);
-        gl.uniform2f(cameraPosUniformLocation, camera.x, camera.y);
-        gl.uniform1f(cameraZoomUniformLocation, camera.zoom);
-        gl.uniform1f(cameraRotationUniformLocation, camera.rotation);
-        
-        // Clear WebGL canvas and draw
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-        
-        // Request next frame
-        requestAnimationFrame(render);
-      };
 
-      // Start rendering
-      requestAnimationFrame(render);
-
-      // Cleanup
-      window.addEventListener("resize", resizeCanvas);
-      window.addEventListener("keydown", handleKeyDown);
-      window.addEventListener("keyup", handleKeyUp);
-      canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-      canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-      canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
-      canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
-      
-      // Initial update of mobile flow button
-      const flowBtn = document.getElementById('btn-flow');
-      if (flowBtn) {
-        flowBtn.style.backgroundColor = camera.autoFlow ? 
-          'rgba(255, 100, 200, 0.5)' : 'rgba(0, 0, 0, 0.5)';
-      }
-      
-      // Hide instructions after a delay on mobile
-      setTimeout(() => {
-        const instructions = document.querySelector('.mobile-instructions');
-        if (instructions) {
-          instructions.style.opacity = '0';
-          instructions.style.transition = 'opacity 1s ease-out';
-          setTimeout(() => {
-            if (instructions) instructions.style.display = 'none';
-          }, 1000);
+        function requestOrientationPermission() {
+            if (!isSecureContext) {
+                 alert('Cannot request permission: Page is not loaded over HTTPS.');
+                 infoDiv.innerHTML = 'ERROR: Cannot request permission.<br>Requires HTTPS.';
+                 permissionButton.style.display = 'none'; // Hide button if it's impossible
+                 return;
+            }
+            DeviceOrientationEvent.requestPermission()
+                .then(response => {
+                    if (response === 'granted') {
+                        window.addEventListener('deviceorientation', handleOrientation, true);
+                        orientationPermissionGranted = true;
+                        permissionButton.style.display = 'none';
+                        infoDiv.textContent = 'Permission granted! Tilt phone.';
+                    } else {
+                        infoDiv.textContent = 'Orientation permission denied.';
+                        alert('Permission denied. Orientation control will not work.');
+                        permissionButton.style.display = 'none'; // Hide after denial too
+                    }
+                })
+                .catch(error => {
+                    console.error('DeviceOrientationEvent.requestPermission error:', error);
+                    infoDiv.textContent = 'Error requesting permission.';
+                    alert('Could not request orientation permission: ' + error);
+                    permissionButton.style.display = 'none';
+                });
         }
-      }, 5000);
-    });
-  </script>
+
+        function setupOrientationEvents() {
+            if (needsPermission) {
+                 if (!isSecureContext) {
+                     infoDiv.innerHTML += '<br>(Button disabled: Needs HTTPS)';
+                     permissionButton.style.display = 'none'; // Don't show button if impossible
+                 } else {
+                     permissionButton.style.display = 'block';
+                     permissionButton.onclick = requestOrientationPermission;
+                     infoDiv.textContent = 'Requires HTTPS. Click button to enable orientation.';
+                 }
+            } else {
+                 // Non-iOS or older browser where permission might not be needed/possible
+                 // Still might fail if not HTTPS, but we can try adding the listener.
+                 window.addEventListener('deviceorientation', handleOrientation, true);
+                 orientationPermissionGranted = true; // Assume it works or permission not required
+                 infoDiv.textContent = isSecureContext
+                    ? 'Tilt your phone!'
+                    : 'Warning: Not HTTPS. Tilt phone (may not work).';
+                 permissionButton.style.display = 'none'; // No button needed
+            }
+        }
+
+        // --- Render Loop ---
+        let startTime = performance.now();
+        let lastInfoUpdateTime = 0;
+
+        function render(now) {
+             if (!shaderProgram || !gl) { // Ensure GL context is also valid
+                 requestAnimationFrame(render); // Keep trying? Or stop? Let's keep trying briefly.
+                 return;
+            }
+
+            const currentTime = now * 0.001; // Time in seconds
+
+            // Update info text periodically if showing sensor values
+            if (orientationPermissionGranted && currentTime - lastInfoUpdateTime > 0.2) { // Update ~5 times/sec
+                 infoDiv.textContent = `Beta: ${currentBeta.toFixed(1)}°, Gamma: ${currentGamma.toFixed(1)}°`;
+                 lastInfoUpdateTime = currentTime;
+            }
+
+            const displayWidth = Math.round(gl.canvas.clientWidth * window.devicePixelRatio);
+            const displayHeight = Math.round(gl.canvas.clientHeight * window.devicePixelRatio);
+            if (gl.canvas.width !== displayWidth || gl.canvas.height !== displayHeight) {
+                gl.canvas.width = displayWidth;
+                gl.canvas.height = displayHeight;
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+                console.log(`Resized render buffer to ${gl.canvas.width}x${gl.canvas.height}`);
+            }
+
+            gl.useProgram(shaderProgram); // Ensure program is active
+
+            gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
+            gl.uniform1f(timeUniformLocation, currentTime - startTime * 0.001); // Consistent time
+            gl.uniform1f(betaUniformLocation, currentBeta);
+            gl.uniform1f(gammaUniformLocation, currentGamma);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.enableVertexAttribArray(positionAttributeLocation);
+            gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+            requestAnimationFrame(render);
+        }
+
+        // --- Start ---
+        if (initWebGL()) {
+             setupOrientationEvents();
+             startTime = performance.now();
+             requestAnimationFrame(render);
+        } else {
+            permissionButton.style.display = 'none'; // Hide button if WebGL failed
+             // Error message already set in initWebGL or createShaderProgram
+        }
+
+    </script>
 </body>
 </html>
